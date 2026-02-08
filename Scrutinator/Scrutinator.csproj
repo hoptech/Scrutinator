@@ -6,12 +6,15 @@
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Title>Scrutinator</Title>
-        <Version>0.0.4</Version>
+        <Version>0.0.5</Version>
         <Authors>Gustavo Bessa</Authors>
+        <Company>Hoptech</Company>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageIcon>lantern_black.png</PackageIcon>
         <Description>A diagnostic tool to inspect DI containers in ASP.NET Core.</Description>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <PackageProjectUrl>https://github.com/hoptech/Scrutinator</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>        
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,6 +28,10 @@
 
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
 </Project>
