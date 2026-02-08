@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrutinator - DI Inspector</title>
+    <style>
+        :root {
+            --bg: #1e1e1e; --text: #d4d4d4; --panel: #252526;
+            --border: #333; --accent: #007acc; --red: #f48771;
+            --green: #89d185; --blue: #569cd6;
+        }
+        body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        h1 { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
+        .dashboard { display: grid; gap: 20px; }
+
+        /* Stats & Warnings */
+        .alert-box { background: #3a1d1d; border-left: 5px solid var(--red); padding: 15px; display: none; }
+        .alert-box.visible { display: block; }
+        .stat-card { background: var(--panel); padding: 10px; border-radius: 4px; display: inline-block; margin-right: 10px; }
+
+        /* Controls */
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; }
+        input { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 8px; flex-grow: 1; }
+        select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 8px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; background: var(--panel); }
+        th { text-align: left; background: #333; padding: 10px; border-bottom: 2px solid var(--border); }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        tr:hover { background: #2a2d2e; }
+
+        /* Badges */
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+        .Singleton { color: var(--blue); background: #1e2a35; }
+        .Scoped { color: var(--accent); background: #1e2a35; } /* Highlight Scoped */
+        .Transient { color: var(--green); background: #1e3020; }
+        .warn-text { color: var(--red); font-weight: bold; }
+        .tag-background {
+            background-color: #6b46c1; /* Purple */
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+<h1>🔍 Scrutinator</h1>
+
+<div class="dashboard">
+    <div id="warning-container" class="alert-box">
+        <h3>⚠️ Captive Dependency Warnings</h3>
+        <ul id="warning-list"></ul>
+    </div>
+
+    <div>
+        <div class="stat-card">Total Services: <strong id="total-count">0</strong></div>
+        <div class="stat-card">System Hidden: <strong id="system-count">0</strong></div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="search" placeholder="Search service or implementation..." onkeyup="filterList()">
+        <select id="lifetime-filter" onchange="filterList()">
+            <option value="">All Lifetimes</option>
+            <option value="Singleton">Singleton</option>
+            <option value="Scoped">Scoped</option>
+            <option value="Transient">Transient</option>
+        </select>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Service Type</th>
+            <th>Implementation</th>
+            <th>Lifetime</th>
+            <th>Namespace</th>
+        </tr>
+        </thead>
+        <tbody id="service-body"></tbody>
+    </table>
+</div>
+
+<script>
+    // DATA INJECTION POINT
+    const rawData = {{DATA_PLACEHOLDER}};
+
+    // Initial Render
+    document.getElementById('total-count').innerText = rawData.TotalServices;
+    document.getElementById('system-count').innerText = rawData.SystemServicesHidden;
+
+    // Render Warnings
+    if (rawData.Warnings && rawData.Warnings.length > 0) {
+        document.getElementById('warning-container').classList.add('visible');
+        const warnList = document.getElementById('warning-list');
+        rawData.Warnings.forEach(w => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="warn-text">${w.ServiceName}</span>: ${w.Message}`;
+            warnList.appendChild(li);
+        });
+    }
+
+    const tbody = document.getElementById('service-body');
+
+    function renderTable(services) {
+        // Performance optimization: Build one big string instead of updating DOM every iteration
+        let tableRows = '';
+
+        services.forEach(s => {
+            // Logic: Check if it is a Hosted Service
+            // This checks both the "Tags" property (if you added it to C#) 
+            // OR falls back to checking the name string directly.
+            const isHosted = (s.Tags && s.Tags.includes('Background')) || s.ServiceType.includes('IHostedService');
+
+            // Create the badge HTML
+            const hostedBadge = isHosted
+                ? '<span style="background-color:#6b46c1; color:white; padding:2px 6px; border-radius:4px; font-size:0.75em; margin-left:8px; vertical-align: middle;">Running 🔄</span>'
+                : '';
+
+            tableRows += `<tr>
+                <td class="code">
+                    ${s.ServiceType}
+                    ${hostedBadge}
+                </td>
+                <td class="code">${s.ImplementationType}</td>
+                <td><span class="badge ${s.Lifetime}">${s.Lifetime}</span></td>
+                <td>${s.Namespace}</td>
+            </tr>`;
+        });
+
+        // Render once at the end
+        tbody.innerHTML = tableRows;
+    }
+
+    function filterList() {
+        const term = document.getElementById('search').value.toLowerCase();
+        const lifetime = document.getElementById('lifetime-filter').value;
+
+        const filtered = rawData.Services.filter(s => {
+            const matchesSearch = s.ServiceType.toLowerCase().includes(term) ||
+                s.ImplementationType.toLowerCase().includes(term);
+            const matchesLife = lifetime === "" || s.Lifetime === lifetime;
+            return matchesSearch && matchesLife;
+        });
+
+        renderTable(filtered);
+    }
+
+    // Initial Draw
+    renderTable(rawData.Services);
+</script>
+</body>
+</html>
