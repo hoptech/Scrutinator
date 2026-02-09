@@ -2,13 +2,9 @@
 
 using Microsoft.Extensions.Logging;
 
-public class ScrutinatorLoggerProvider : ILoggerProvider
+public class ScrutinatorLoggerProvider(LogHub hub) : ILoggerProvider
 {
-    private readonly LogHub _hub;
-
-    public ScrutinatorLoggerProvider(LogHub hub) => _hub = hub;
-
-    public ILogger CreateLogger(string categoryName) => new ScrutinatorLogger(categoryName, _hub);
+    public ILogger CreateLogger(string categoryName) => new ScrutinatorLogger(categoryName, hub);
 
     public void Dispose() { }
 }

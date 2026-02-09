@@ -1,6 +1,6 @@
 ﻿namespace Scrutinator.Core.DI;
 
-public class DIScrutinatorOptions
+public sealed class DIScrutinatorOptions
 {
     /// <summary>
     /// If true, includes Microsoft and System services in the list.

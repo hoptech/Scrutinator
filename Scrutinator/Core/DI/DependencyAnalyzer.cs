@@ -2,8 +2,10 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
-public class DependencyAnalyzer
+public static class DependencyAnalyzer
 {
+    private const string BackgroundServiceTag = "Background";
+
     public static ScrutinatorReport Analyze(IServiceCollection services, DIScrutinatorOptions options)
     {
         var report = new ScrutinatorReport();
@@ -28,11 +30,10 @@ public class DependencyAnalyzer
         {
             var isSystem = IsSystemService(descriptor);
             
-            // Should we hide this from the main list?
             if (isSystem && !options.IncludeSystemServices)
             {
                 report.SystemServicesHidden++;
-                continue; // Skip adding to the list, but we still analyzed it for the map above
+                continue;
             }
 
             var node = new ServiceNode
@@ -45,7 +46,7 @@ public class DependencyAnalyzer
 
             if (descriptor.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService))
             {
-                node.Tags.Add("Background");
+                node.Tags.Add(BackgroundServiceTag);
             }
 
             report.Services.Add(node);
@@ -105,10 +106,10 @@ public class DependencyAnalyzer
     {
         // Check the Service Type (Interface)
         var serviceNs = descriptor.ServiceType.Namespace;
-        bool serviceIsSystem = serviceNs != null && (serviceNs.StartsWith("System") || serviceNs.StartsWith("Microsoft"));
+        var serviceIsSystem = serviceNs != null && (serviceNs.StartsWith("System") || serviceNs.StartsWith("Microsoft"));
 
         // Check the Implementation Type (Your Class)
-        bool implementationIsSystem = true; // Default to true for Factories/Instances we can't read
+        var implementationIsSystem = true; // Default to true for Factories/Instances we can't read
     
         if (descriptor.ImplementationType != null)
         {
@@ -160,7 +161,6 @@ public class DependencyAnalyzer
 
     private static string FormatName(Type type)
     {
-        // Makes generic types readable: List`1 becomes List<T>
         if (!type.IsGenericType) return type.Name;
         
         var name = type.Name.Split('`')[0];

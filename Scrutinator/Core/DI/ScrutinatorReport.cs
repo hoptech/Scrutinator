@@ -1,6 +1,6 @@
 ﻿namespace Scrutinator.Core.DI;
 
-public class ScrutinatorReport
+public sealed class ScrutinatorReport
 {
     public List<ServiceNode> Services { get; set; } = [];
     public List<DependencyWarning> Warnings { get; set; } = [];

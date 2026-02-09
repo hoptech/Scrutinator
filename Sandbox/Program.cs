@@ -1,5 +1,4 @@
 using Sandbox.Services;
-using Scrutinator.Middleware;
 using Scrutinator.Middleware.DI;
 using Scrutinator.Middleware.Log;
 
@@ -59,7 +58,7 @@ Task.Run(async () => {
             app.Logger.LogError(new Exception("Fake DB Error"), "Database connection failed!");
         }
 
-        await Task.Delay(2000);
+        await Task.Delay(2_000);
     }
 });
 

@@ -1,10 +1,9 @@
-﻿using Microsoft.AspNetCore.Hosting.Server;
+﻿namespace Scrutinator.Middleware.Log;
+
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Hosting;
 using Scrutinator.Util;
-
-namespace Scrutinator.Middleware.Log;
-
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;

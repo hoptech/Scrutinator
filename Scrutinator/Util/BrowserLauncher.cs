@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿namespace Scrutinator.Util;
 
-namespace Scrutinator.Util;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 public static class BrowserLauncher
 {

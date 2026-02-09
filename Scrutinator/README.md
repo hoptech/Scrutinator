@@ -1,6 +1,7 @@
 # Scrutinator
 
 Scrutinator is a lightweight diagnostic tool for inspecting ASP.NET Core dependency injection containers. It captures your `IServiceCollection`, analyzes registrations, and serves a small dashboard that lists services, lifetimes, and potential captive dependency issues.
+And now will with a fancy Log Scrutinating Dashboard.
 
 ## Features
 
@@ -25,17 +26,24 @@ using Scrutinator.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScrutinator();
+builder.Services
+    .AddDIScrutinator()
+    .AddLogScrutinator();
 
 var app = builder.Build();
 
-app.UseDIScrutinator();
-app.UseLogScrutinator();
+app
+    .UseDIScrutinator()
+    .UseLogScrutinator();
 
 app.Run();
 ```
 
-Open the dashboard at `http(s)://<host>/scrutinator`.
+For DI:
+Open the dashboard at `http(s)://<host>/di-scrutinator`.
+
+For Logs:
+Open the dashboard at `http(s)://<host>/log-scrutinator`.
 
 ## Configuration
 
@@ -47,9 +55,7 @@ app.UseDIScrutinator(options =>
     options.IncludeSystemServices = false;
     options.ScanForCaptiveDependencies = true;
     options.OpenDashboardAutomatically = true;
-    options.RoutePrefix = "/scrutinator";
 });
-app.UseLogScrutinator();
 ```
 
 Options:
@@ -57,7 +63,6 @@ Options:
 - `IncludeSystemServices` (default: false): include `System.*` and `Microsoft.*` registrations.
 - `ScanForCaptiveDependencies` (default: true): scan singleton constructors for scoped dependencies.
 - `OpenDashboardAutomatically` (default: true): open the dashboard in the default browser on app start.
-- `RoutePrefix` (default: `/scrutinator`): path for the dashboard.
 
 ## How it works
 
@@ -73,4 +78,4 @@ This repo includes a `Sandbox` project that demonstrates usage:
 dotnet run --project Sandbox
 ```
 
-Then navigate to `https://localhost:<port>/scrutinator`.
+Then navigate to `https://localhost:<port>/di-scrutinator` or `https://localhost:<port>/log-scrutinator` in your browser.
