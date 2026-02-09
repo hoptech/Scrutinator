@@ -50,7 +50,9 @@
         <option value="Error">Error ❌</option>
     </select>
 
-    <input type="text" id="search-box" placeholder="Filter text..." onkeyup="applyFilter()" style="margin-left:5px; width: 200px;" />
+    <input type="text" id="search-box" placeholder="Include text..." onkeyup="applyFilter()" style="margin-left:5px; width: 200px;" />
+
+    <input type="text" id="exclude-box" placeholder="Exclude text..." onkeyup="applyFilter()" style="margin-left:5px; width: 200px; border-color: #9e5b5b;" />
 
     <div style="flex-grow:1"></div> <button id="btn-pause" onclick="togglePause()">Pause</button>
     <button onclick="clearLogs()">Clear</button>
@@ -63,7 +65,6 @@
     let isPaused = false;
     let eventSource = null;
 
-    // 2. NEW: Level Ranking Logic
     const levelRank = {
         "Trace": 0,
         "Debug": 1,
@@ -74,7 +75,6 @@
     };
 
     function connect() {
-        // Robust logic to find /stream relative to current URL
         const currentPath = window.location.pathname.replace(/\/$/, "");
         const streamUrl = window.location.origin + currentPath + '/stream';
 
@@ -99,8 +99,6 @@
     function appendLog(log) {
         const row = document.createElement('div');
         row.className = `log-entry lvl-${log.Level}`;
-
-        // 3. NEW: Store raw level for easier filtering
         row.dataset.level = log.Level;
 
         row.innerHTML = `
@@ -109,7 +107,6 @@
             <span class="message">${log.Message}</span>
         `;
 
-        // Check if we should show this new row immediately based on current filters
         if (!isRowVisible(row)) {
             row.style.display = 'none';
         }
@@ -129,44 +126,52 @@
         consoleDiv.innerHTML = '';
     }
 
-    // 4. NEW: Unified Filter Logic
     function applyFilter() {
-        const filterText = document.getElementById('search-box').value.toLowerCase();
+        const includeText = document.getElementById('search-box').value.toLowerCase();
+        const excludeText = document.getElementById('exclude-box').value.toLowerCase();
         const minLevelStr = document.getElementById('level-selector').value;
         const minRank = levelRank[minLevelStr] || 0;
 
         const rows = document.querySelectorAll('.log-entry');
 
         rows.forEach(row => {
-            // Check Level
             const rowLevel = row.dataset.level || "Trace";
             const rowRank = levelRank[rowLevel] || 0;
+            const rowText = row.innerText.toLowerCase();
+
+            // 1. Check Level
             const levelPass = rowRank >= minRank;
 
-            // Check Text
-            const textPass = row.innerText.toLowerCase().includes(filterText);
+            // 2. Check Include (search box)
+            // Pass if box is empty OR text contains value
+            const includePass = includeText === "" || rowText.includes(includeText);
 
-            // Show only if BOTH pass
-            row.style.display = (levelPass && textPass) ? 'flex' : 'none';
+            // 3. Check Exclude (exclude box)
+            // Pass if box is empty OR text DOES NOT contain value
+            const excludePass = excludeText === "" || !rowText.includes(excludeText);
+
+            // Show only if ALL pass
+            row.style.display = (levelPass && includePass && excludePass) ? 'flex' : 'none';
         });
     }
 
-    // Helper to check a single row (used when appending new logs)
     function isRowVisible(row) {
-        const filterText = document.getElementById('search-box').value.toLowerCase();
+        const includeText = document.getElementById('search-box').value.toLowerCase();
+        const excludeText = document.getElementById('exclude-box').value.toLowerCase();
         const minLevelStr = document.getElementById('level-selector').value;
         const minRank = levelRank[minLevelStr] || 0;
 
         const rowLevel = row.dataset.level || "Trace";
         const rowRank = levelRank[rowLevel] || 0;
+        const rowText = row.innerText.toLowerCase();
 
         const levelPass = rowRank >= minRank;
-        const textPass = row.innerText.toLowerCase().includes(filterText);
+        const includePass = includeText === "" || rowText.includes(includeText);
+        const excludePass = excludeText === "" || !rowText.includes(excludeText);
 
-        return levelPass && textPass;
+        return levelPass && includePass && excludePass;
     }
 
-    // Start
     connect();
 </script>
 </body>

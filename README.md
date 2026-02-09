@@ -1,7 +1,7 @@
 # Scrutinator
 
 Scrutinator is a lightweight diagnostic tool for inspecting ASP.NET Core dependency injection containers. It captures your `IServiceCollection`, analyzes registrations, and serves a small dashboard that lists services, lifetimes, and potential captive dependency issues.
-And now will with a fancy Log Scrutinating Dashboard.
+And now with a fancy Log Scrutinating Dashboard.
 
 ## Features
 
@@ -56,6 +56,11 @@ app.UseDIScrutinator(options =>
     options.ScanForCaptiveDependencies = true;
     options.OpenDashboardAutomatically = true;
 });
+
+app.UseLogScrutinator(options =>
+{
+    options.OpenDashboardAutomatically = true;
+});
 ```
 
 Options:
@@ -66,16 +71,21 @@ Options:
 
 ## How it works
 
-Scrutinator captures the `IServiceCollection` via `AddScrutinator()`, then analyzes it when the dashboard route is hit. The UI is an embedded HTML file that renders the serialized report.
+### DI - Scrutinator
+Scrutinator captures the `IServiceCollection` via `AddDIScrutinator()`, then analyzes it when the dashboard route is hit. The UI is an embedded HTML file that renders the serialized report.
 
 Captive dependency analysis is best-effort and only runs when a singleton has a concrete `ImplementationType`. Registrations based on factories or instances cannot be fully inspected.
 
+### Log - Scrutinator
+
+Scrutinator captures logs from the `ILogger` provider and analyzes them when the dashboard route is hit.
+
 ## Development
 
-This repo includes a `Sandbox` project that demonstrates usage:
+The project's [repo](https://github.com/hoptech/Scrutinator) includes a `Sandbox` project that demonstrates usage:
 
 ```bash
 dotnet run --project Sandbox
 ```
 
-Then navigate to `https://localhost:<port>/scrutinator`.
+Then navigate to `https://localhost:<port>/di-scrutinator` or `https://localhost:<port>/log-scrutinator` in your browser.
