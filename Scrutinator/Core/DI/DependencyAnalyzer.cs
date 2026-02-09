@@ -1,10 +1,10 @@
-﻿namespace Scrutinator.Core;
+﻿namespace Scrutinator.Core.DI;
 
 using Microsoft.Extensions.DependencyInjection;
 
 public class DependencyAnalyzer
 {
-    public static ScrutinatorReport Analyze(IServiceCollection services, ScrutinatorOptions options)
+    public static ScrutinatorReport Analyze(IServiceCollection services, DIScrutinatorOptions options)
     {
         var report = new ScrutinatorReport();
 

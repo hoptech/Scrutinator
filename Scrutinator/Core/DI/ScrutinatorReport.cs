@@ -1,4 +1,4 @@
-﻿namespace Scrutinator.Core;
+﻿namespace Scrutinator.Core.DI;
 
 public class ScrutinatorReport
 {

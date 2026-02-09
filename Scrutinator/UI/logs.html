@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scrutinator - Live Logs</title>
+    <style>
+        body { background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+
+        /* Toolbar */
+        .toolbar { padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center; }
+
+        button, select, input {
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-family: inherit;
+        }
+
+        button:hover, select:hover { background: #444; cursor: pointer; }
+        button.active { background: #007acc; border-color: #007acc; }
+        input:focus, select:focus { outline: 1px solid #007acc; border-color: #007acc; }
+
+        /* Log Console */
+        #console { flex-grow: 1; overflow-y: auto; padding: 10px; font-size: 14px; line-height: 1.4; }
+
+        /* Log Entries */
+        .log-entry { border-bottom: 1px solid #2a2a2a; padding: 2px 0; display: flex; }
+        .timestamp { color: #888; margin-right: 10px; flex-shrink: 0; }
+        .category { color: #569cd6; margin-right: 10px; font-weight: bold; flex-shrink: 0; }
+        .message { white-space: pre-wrap; word-break: break-all; }
+
+        /* Levels Colors */
+        .lvl-Trace, .lvl-Debug { color: #888; }
+        .lvl-Information { color: #89d185; }
+        .lvl-Warning { color: #cca700; }
+        .lvl-Error, .lvl-Critical { color: #f48771; }
+    </style>
+</head>
+<body>
+<div class="toolbar">
+    <div class="title"><span class="live-indicator"></span>🔴 Live Logs</div>
+
+    <select id="level-selector" onchange="applyFilter()" title="Minimum Log Level">
+        <option value="Trace">ALL (Trace)</option>
+        <option value="Debug">Debug</option>
+        <option value="Information" selected>Info</option>
+        <option value="Warning">Warning ⚠️</option>
+        <option value="Error">Error ❌</option>
+    </select>
+
+    <input type="text" id="search-box" placeholder="Filter text..." onkeyup="applyFilter()" style="margin-left:5px; width: 200px;" />
+
+    <div style="flex-grow:1"></div> <button id="btn-pause" onclick="togglePause()">Pause</button>
+    <button onclick="clearLogs()">Clear</button>
+</div>
+
+<div id="console"></div>
+
+<script>
+    const consoleDiv = document.getElementById('console');
+    let isPaused = false;
+    let eventSource = null;
+
+    // 2. NEW: Level Ranking Logic
+    const levelRank = {
+        "Trace": 0,
+        "Debug": 1,
+        "Information": 2,
+        "Warning": 3,
+        "Error": 4,
+        "Critical": 5
+    };
+
+    function connect() {
+        // Robust logic to find /stream relative to current URL
+        const currentPath = window.location.pathname.replace(/\/$/, "");
+        const streamUrl = window.location.origin + currentPath + '/stream';
+
+        console.log("Connecting to:", streamUrl);
+        eventSource = new EventSource(streamUrl);
+
+        eventSource.onmessage = (event) => {
+            if (isPaused) return;
+            const log = JSON.parse(event.data);
+            appendLog(log);
+        };
+
+        eventSource.onerror = () => {
+            const div = document.createElement('div');
+            div.style.color = "#f48771";
+            div.style.padding = "10px";
+            div.innerText = "--- Connection Lost. Reconnecting... ---";
+            consoleDiv.appendChild(div);
+        };
+    }
+
+    function appendLog(log) {
+        const row = document.createElement('div');
+        row.className = `log-entry lvl-${log.Level}`;
+
+        // 3. NEW: Store raw level for easier filtering
+        row.dataset.level = log.Level;
+
+        row.innerHTML = `
+            <span class="timestamp">${log.Timestamp}</span>
+            <span class="category">[${log.Category}]</span>
+            <span class="message">${log.Message}</span>
+        `;
+
+        // Check if we should show this new row immediately based on current filters
+        if (!isRowVisible(row)) {
+            row.style.display = 'none';
+        }
+
+        consoleDiv.appendChild(row);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        btn.innerText = isPaused ? "Resume ▶" : "Pause ⏸";
+        btn.classList.toggle('active', isPaused);
+    }
+
+    function clearLogs() {
+        consoleDiv.innerHTML = '';
+    }
+
+    // 4. NEW: Unified Filter Logic
+    function applyFilter() {
+        const filterText = document.getElementById('search-box').value.toLowerCase();
+        const minLevelStr = document.getElementById('level-selector').value;
+        const minRank = levelRank[minLevelStr] || 0;
+
+        const rows = document.querySelectorAll('.log-entry');
+
+        rows.forEach(row => {
+            // Check Level
+            const rowLevel = row.dataset.level || "Trace";
+            const rowRank = levelRank[rowLevel] || 0;
+            const levelPass = rowRank >= minRank;
+
+            // Check Text
+            const textPass = row.innerText.toLowerCase().includes(filterText);
+
+            // Show only if BOTH pass
+            row.style.display = (levelPass && textPass) ? 'flex' : 'none';
+        });
+    }
+
+    // Helper to check a single row (used when appending new logs)
+    function isRowVisible(row) {
+        const filterText = document.getElementById('search-box').value.toLowerCase();
+        const minLevelStr = document.getElementById('level-selector').value;
+        const minRank = levelRank[minLevelStr] || 0;
+
+        const rowLevel = row.dataset.level || "Trace";
+        const rowRank = levelRank[rowLevel] || 0;
+
+        const levelPass = rowRank >= minRank;
+        const textPass = row.innerText.toLowerCase().includes(filterText);
+
+        return levelPass && textPass;
+    }
+
+    // Start
+    connect();
+</script>
+</body>
+</html>

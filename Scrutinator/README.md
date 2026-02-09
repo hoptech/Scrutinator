@@ -29,7 +29,8 @@ builder.Services.AddScrutinator();
 
 var app = builder.Build();
 
-app.UseScrutinator();
+app.UseDIScrutinator();
+app.UseLogScrutinator();
 
 app.Run();
 ```
@@ -41,13 +42,14 @@ Open the dashboard at `http(s)://<host>/scrutinator`.
 Configure options when adding the middleware:
 
 ```csharp
-app.UseScrutinator(options =>
+app.UseDIScrutinator(options =>
 {
     options.IncludeSystemServices = false;
     options.ScanForCaptiveDependencies = true;
     options.OpenDashboardAutomatically = true;
     options.RoutePrefix = "/scrutinator";
 });
+app.UseLogScrutinator();
 ```
 
 Options:

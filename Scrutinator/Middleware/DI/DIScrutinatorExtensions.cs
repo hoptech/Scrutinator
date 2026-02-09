@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿namespace Scrutinator.Middleware.DI;
+
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
@@ -7,19 +8,18 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Scrutinator.Core;
+using Scrutinator.Core.DI;
 using Scrutinator.Util;
 
-namespace Scrutinator.Middleware;
-
-public static class ScrutinatorExtensions
+public static class DIScrutinatorExtensions
 {
     private static IServiceCollection? _capturedServices;
+    private const string RoutePrefix = "/di-scrutinator";
     
     /// <summary>
     /// Step 1: Capture the Service Collection
     /// </summary>
-    public static IServiceCollection AddScrutinator(this IServiceCollection services)
+    public static IServiceCollection AddDIScrutinator(this IServiceCollection services)
     {
         _capturedServices = services;
         return services;
@@ -29,19 +29,19 @@ public static class ScrutinatorExtensions
     /// Step 2: Map the UI and Analysis Logic
     /// </summary>
     // [Conditional("DEBUG")]
-    public static IApplicationBuilder UseScrutinator(this IApplicationBuilder app, Action<ScrutinatorOptions>? configure = null)
+    public static IApplicationBuilder UseDIScrutinator(this IApplicationBuilder app, Action<DIScrutinatorOptions>? configure = null)
     {
         if (_capturedServices == null)
         {
-            throw new InvalidOperationException("Scrutinator Error: You must call 'services.AddScrutinator()' in ConfigureServices before calling 'app.UseScrutinator()'.");
+            throw new InvalidOperationException($"Scrutinator Error: You must call 'services.{nameof(AddDIScrutinator)}()' in ConfigureServices before calling 'app.{nameof(UseDIScrutinator)}()'.");
         }
 
-        var options = new ScrutinatorOptions();
+        var options = new DIScrutinatorOptions();
         configure?.Invoke(options);
 
         // --- Part A: Middleware Logic (The UI) ---
         // app.Map branches the request pipeline. If the URL matches RoutePrefix, this branch runs.
-        app.Map(options.RoutePrefix, builder =>
+        app.Map(RoutePrefix, builder =>
         {
             builder.Run(async context =>
             {
@@ -53,9 +53,8 @@ public static class ScrutinatorExtensions
 
                 // 3. Load HTML
                 var assembly = Assembly.GetExecutingAssembly();
-                var resourceName = "Scrutinator.UI.index.html"; // Check your namespace!
 
-                using var stream = assembly.GetManifestResourceStream(resourceName);
+                using var stream = assembly.GetManifestResourceStream("Scrutinator.UI.index.html");
                 if (stream == null)
                 {
                     await context.Response.WriteAsync("<h1>Error: Embedded UI resource not found.</h1>");
@@ -73,7 +72,6 @@ public static class ScrutinatorExtensions
             });
         });
 
-        // --- Part B: Auto-Opener Logic ---
         if (options.OpenDashboardAutomatically)
         {
             // In Startup.cs, we access services via app.ApplicationServices
@@ -91,7 +89,7 @@ public static class ScrutinatorExtensions
                     {
                         var finalUrl = address.Replace("0.0.0.0", "localhost")
                                               .Replace("[::]", "localhost") 
-                                              + options.RoutePrefix;
+                                              + RoutePrefix;
                         BrowserLauncher.Open(finalUrl);
                     }
                 });

@@ -1,6 +1,6 @@
-﻿namespace Scrutinator.Core;
+﻿namespace Scrutinator.Core.DI;
 
-public class ScrutinatorOptions
+public class DIScrutinatorOptions
 {
     /// <summary>
     /// If true, includes Microsoft and System services in the list.
@@ -16,9 +16,4 @@ public class ScrutinatorOptions
     /// If true, opens the default browser to the dashboard on app start (Dev only).
     /// </summary>
     public bool OpenDashboardAutomatically { get; set; } = true;
-
-    /// <summary>
-    /// The path where the dashboard will be hosted.
-    /// </summary>
-    public string RoutePrefix { get; set; } = "/scrutinator";
 }

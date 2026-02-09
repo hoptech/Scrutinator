@@ -29,7 +29,8 @@ builder.Services.AddScrutinator();
 
 var app = builder.Build();
 
-app.UseScrutinator();
+app.UseDIScrutinator();
+app.UseLogScrutinator();
 
 app.Run();
 ```
@@ -41,12 +42,11 @@ Open the dashboard at `http(s)://<host>/scrutinator`.
 Configure options when adding the middleware:
 
 ```csharp
-app.UseScrutinator(options =>
+app.UseDIScrutinator(options =>
 {
     options.IncludeSystemServices = false;
     options.ScanForCaptiveDependencies = true;
     options.OpenDashboardAutomatically = true;
-    options.RoutePrefix = "/scrutinator";
 });
 ```
 
@@ -55,7 +55,6 @@ Options:
 - `IncludeSystemServices` (default: false): include `System.*` and `Microsoft.*` registrations.
 - `ScanForCaptiveDependencies` (default: true): scan singleton constructors for scoped dependencies.
 - `OpenDashboardAutomatically` (default: true): open the dashboard in the default browser on app start.
-- `RoutePrefix` (default: `/scrutinator`): path for the dashboard.
 
 ## How it works
 
