@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Title>Scrutinator</Title>
-        <Version>1.0.3</Version>
+        <Version>1.1.2</Version>
         <Authors>Gustavo Bessa</Authors>
         <Company>Hoptech</Company>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -21,6 +21,7 @@
         <None Include="lantern_black.png" Pack="true" PackagePath="\" />
         <EmbeddedResource Include="UI\index.html" />
         <EmbeddedResource Include="UI\logs.html" />
+        <EmbeddedResource Include="UI\packages.html" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scrutinator - Packages</title>
+    <style>
+        :root { --bg: #1e1e1e; --panel: #252526; --text: #d4d4d4; --accent: #4ec9b0; --border: #333; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
+
+        h2 { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-top: 0; color: white; display: flex; align-items: center; gap: 10px; }
+
+        /* Toolbar */
+        .toolbar { display: flex; gap: 15px; margin-bottom: 20px; background: var(--panel); padding: 10px; border: 1px solid var(--border); border-radius: 4px; align-items: center; }
+
+        input[type="text"] { background: #111; border: 1px solid #444; color: white; padding: 8px; width: 300px; border-radius: 4px; outline: none; }
+        input[type="text"]:focus { border-color: var(--accent); }
+
+        /* Checkbox Styling */
+        .toggle-container { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+        input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed; }
+        th { text-align: left; padding: 10px; border-bottom: 2px solid var(--border); color: var(--accent); position: sticky; top: 0; background: var(--bg); }
+        td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+        tr:hover { background: #2a2d2e; }
+
+        .name { font-family: 'Consolas', monospace; color: #9cdcfe; font-weight: bold; font-size: 1.1em; }
+        .version { font-family: 'Consolas', monospace; color: #b5cea8; }
+        .path { color: #666; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Used By Section */
+        .used-by-container { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #333; display: none; }
+        .show-usage .used-by-container { display: block; } /* CSS Magic to toggle */
+
+        .used-label { font-size: 0.75em; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .used-list { font-size: 0.85em; color: #aaa; margin-top: 2px; line-height: 1.4; }
+        .used-list span { color: #dcdcaa; }
+
+        .entry-project { border-left: 3px solid #4ec9b0; background: #232323; }
+    </style>
+</head>
+<body>
+
+<h2>📦 Scrutinator - Loaded Packages</h2>
+
+<div class="toolbar">
+    <input type="text" id="search" placeholder="Search packages..." onkeyup="render()">
+
+    <label class="toggle-container">
+        <input type="checkbox" id="chk-usage" onchange="render()">
+        <span>Show "Used By" Dependencies</span>
+    </label>
+
+    <span style="flex-grow:1"></span>
+    <span id="count-display" style="color:#666">0 Items</span>
+</div>
+
+<table id="pkg-table">
+    <thead>
+    <tr>
+        <th style="width: 40%">Assembly Name</th>
+        <th style="width: 15%">Version</th>
+        <th style="width: 45%">Location</th>
+    </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+</table>
+
+<script>
+    const allData = {{DATA_PLACEHOLDER}};
+
+    // Initial Render
+    render();
+
+    function render() {
+        const query = document.getElementById('search').value.toLowerCase();
+        const showUsage = document.getElementById('chk-usage').checked;
+        const tbody = document.getElementById('table-body');
+        const table = document.getElementById('pkg-table');
+
+        // 1. Toggle the class on the TABLE itself
+        if (showUsage) table.classList.add('show-usage');
+        else table.classList.remove('show-usage');
+
+        // 2. Filter Data
+        const filtered = allData.filter(a =>
+            a.Name.toLowerCase().includes(query) ||
+            (a.Location && a.Location.toLowerCase().includes(query))
+        );
+
+        document.getElementById('count-display').innerText = filtered.length + " Loaded";
+
+        // 3. Render Rows
+        tbody.innerHTML = filtered.map(a => {
+            const rowClass = a.IsEntryProject ? 'entry-project' : '';
+
+            // Logic for usage text
+            let usageHtml = '';
+            if (a.UsedBy && a.UsedBy.length > 0) {
+                // Limit to first 10 to avoid wall of text
+                const displayList = a.UsedBy.slice(0, 15).join(', ');
+                const more = a.UsedBy.length > 15 ? `... (+${a.UsedBy.length - 15} more)` : '';
+
+                usageHtml = `
+                        <div class="used-by-container">
+                            <div class="used-label">Referenced By:</div>
+                            <div class="used-list"><span>${displayList}</span> ${more}</div>
+                        </div>`;
+            } else {
+                usageHtml = `<div class="used-by-container"><div class="used-label">No loaded assemblies reference this directly.</div></div>`;
+            }
+
+            return `<tr class="${rowClass}">
+                    <td>
+                        <div class="name">${a.Name}</div>
+                        ${usageHtml}
+                    </td>
+                    <td class="version">${a.Version}</td>
+                    <td class="path" title="${a.Location}">${a.Location || 'In Memory'}</td>
+                </tr>`;
+        }).join('');
+    }
+</script>
+</body>
+</html>

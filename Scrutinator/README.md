@@ -61,6 +61,11 @@ app.UseLogScrutinator(options =>
 {
     options.OpenDashboardAutomatically = true;
 });
+
+app.UsePackageScrutinator(opts =>
+{
+    opts.OpenDashboardAutomatically = true;
+});
 ```
 
 Options:
@@ -80,6 +85,9 @@ Captive dependency analysis is best-effort and only runs when a singleton has a 
 
 Scrutinator captures logs from the `ILogger` provider and analyzes them when the dashboard route is hit.
 
+### Package - Scrutinator
+Scrutinator captures the `packages` from the `Assembly` and analyzes it when the dashboard route is hit.
+
 ## Development
 
 The project's [repo](https://github.com/hoptech/Scrutinator) includes a `Sandbox` project that demonstrates usage:
@@ -88,4 +96,4 @@ The project's [repo](https://github.com/hoptech/Scrutinator) includes a `Sandbox
 dotnet run --project Sandbox
 ```
 
-Then navigate to `https://localhost:<port>/di-scrutinator` or `https://localhost:<port>/log-scrutinator` in your browser.
+Then navigate to `https://localhost:<port>/di-scrutinator` or `https://localhost:<port>/log-scrutinator` or `https://localhost:<port>/package-scrutinator` in your browser.

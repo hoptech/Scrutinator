@@ -1,6 +1,7 @@
 using Sandbox.Services;
 using Scrutinator.Middleware.DI;
 using Scrutinator.Middleware.Log;
+using Scrutinator.Middleware.Package;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,11 @@ app.UseDIScrutinator(opts => {
 });
 
 app.UseLogScrutinator(opts =>
+{
+    opts.OpenDashboardAutomatically = true;
+});
+
+app.UsePackageScrutinator(opts =>
 {
     opts.OpenDashboardAutomatically = true;
 });
