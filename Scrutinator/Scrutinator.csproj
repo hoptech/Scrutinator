@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Title>Scrutinator</Title>
-        <Version>1.1.2</Version>
+        <Version>1.1.5</Version>
         <Authors>Gustavo Bessa</Authors>
         <Company>Hoptech</Company>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -14,7 +14,8 @@
         <Description>A diagnostic tool to inspect DI containers in ASP.NET Core.</Description>
         <PackageProjectUrl>https://github.com/hoptech/Scrutinator</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>        
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+        <IsPackable>true</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

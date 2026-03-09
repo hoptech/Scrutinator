@@ -35,6 +35,8 @@ var app = builder.Build();
 app
     .UseDIScrutinator()
     .UseLogScrutinator();
+    // Or, if you have a custom log, like a ILog
+    .ScrutinateCustomLogger<ILog>();
 
 app.Run();
 ```
@@ -94,6 +96,9 @@ The project's [repo](https://github.com/hoptech/Scrutinator) includes a `Sandbox
 
 ```bash
 dotnet run --project Sandbox
+
+dotnet build --configuration Release
+dotnet pack --configuration Release
 ```
 
 Then navigate to `https://localhost:<port>/di-scrutinator` or `https://localhost:<port>/log-scrutinator` or `https://localhost:<port>/package-scrutinator` in your browser.

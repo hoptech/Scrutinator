@@ -35,6 +35,8 @@ var app = builder.Build();
 app
     .UseDIScrutinator()
     .UseLogScrutinator();
+    // Or, if you have a custom log, like a ILog
+    .ScrutinateCustomLogger<ILog>();
 
 app.Run();
 ```

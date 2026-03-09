@@ -16,6 +16,15 @@ public static class LogScrutinatorExtensions
 {
     private const string RoutePrefix = "/log-scrutinator";
 
+    /// <summary>
+    /// Registers the Log Scrutinator logging service into the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection to register services into.</param>
+    /// <returns>The service collection for method chaining.</returns>
+    /// <remarks>
+    /// This method must be called before <see cref="UseLogScrutinator"/> to properly initialize the logging infrastructure.
+    /// It registers the <see cref="LogHub"/> singleton and the <see cref="ScrutinatorLoggerProvider"/> as the application's logger provider.
+    /// </remarks>
     public static IServiceCollection AddLogScrutinator(this IServiceCollection services)
     {
         services.AddSingleton<LogHub>();
@@ -33,6 +42,17 @@ public static class LogScrutinatorExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Configures the Log Scrutinator middleware into the application pipeline.
+    /// </summary>
+    /// <param name="app">The application builder to configure.</param>
+    /// <param name="configure">Optional configuration delegate to customize Log Scrutinator behavior.</param>
+    /// <returns>The application builder for method chaining.</returns>
+    /// <remarks>
+    /// This method must be called after <see cref="AddLogScrutinator"/> to activate the logging middleware.
+    /// It sets up the dashboard UI at the route "/log-scrutinator" and configures Server-Sent Events (SSE) streaming for real-time log updates.
+    /// </remarks>
     public static IApplicationBuilder UseLogScrutinator(this IApplicationBuilder app, Action<LogScrutinatorOptions>? configure = null)
     {
         var hub = app.ApplicationServices.GetService<LogHub>();
@@ -151,6 +171,49 @@ public static class LogScrutinatorExtensions
         }
 
         return app;
+    }
+
+    public static IServiceCollection ScrutinateCustomLogger<TInterface>(
+        this IServiceCollection services,
+        string categoryName = "CustomLogger",
+        CustomLogMapper? customMapper = null) where TInterface : class
+    {
+        // Find the original registration of the custom logger
+        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(TInterface));
+    
+        if (descriptor == null) return services; // Not registered, nothing to intercept
+
+        // Remove the original
+        services.Remove(descriptor);
+
+        var mapperToUse = customMapper ?? CustomLoggerProxy<TInterface>.DefaultMapper;
+
+        // Re-register with the Proxy Wrapper
+        services.Add(new ServiceDescriptor(typeof(TInterface), sp =>
+        {
+            var hub = sp.GetRequiredService<LogHub>();
+
+            // Create the original implementation manually
+            TInterface realLogger;
+            if (descriptor.ImplementationInstance != null)
+            {
+                realLogger = (TInterface)descriptor.ImplementationInstance;
+            }
+            else if (descriptor.ImplementationFactory != null)
+            {
+                realLogger = (TInterface)descriptor.ImplementationFactory(sp);
+            }
+            else
+            {
+                realLogger = (TInterface)ActivatorUtilities.CreateInstance(sp, descriptor.ImplementationType!);
+            }
+
+            // Wrap it in the dynamic proxy
+            return CustomLoggerProxy<TInterface>.Create(realLogger, hub, categoryName, mapperToUse);
+
+        }, descriptor.Lifetime));
+
+        return services;
     }
 
     private static async Task SendLog(HttpContext context, LogEntry log)
