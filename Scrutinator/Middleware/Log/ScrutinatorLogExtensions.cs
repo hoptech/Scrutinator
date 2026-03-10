@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Scrutinator.Core.Log;
 
-public static class LogScrutinatorExtensions
+public static class ScrutinatorLogExtensions
 {
     private const string RoutePrefix = "/log-scrutinator";
 
@@ -22,10 +22,10 @@ public static class LogScrutinatorExtensions
     /// <param name="services">The service collection to register services into.</param>
     /// <returns>The service collection for method chaining.</returns>
     /// <remarks>
-    /// This method must be called before <see cref="UseLogScrutinator"/> to properly initialize the logging infrastructure.
+    /// This method must be called before <see cref="UseScrutinatorLog"/> to properly initialize the logging infrastructure.
     /// It registers the <see cref="LogHub"/> singleton and the <see cref="ScrutinatorLoggerProvider"/> as the application's logger provider.
     /// </remarks>
-    public static IServiceCollection AddLogScrutinator(this IServiceCollection services)
+    public static IServiceCollection AddScrutinatorLog(this IServiceCollection services)
     {
         services.AddSingleton<LogHub>();
 
@@ -50,13 +50,13 @@ public static class LogScrutinatorExtensions
     /// <param name="configure">Optional configuration delegate to customize Log Scrutinator behavior.</param>
     /// <returns>The application builder for method chaining.</returns>
     /// <remarks>
-    /// This method must be called after <see cref="AddLogScrutinator"/> to activate the logging middleware.
+    /// This method must be called after <see cref="AddScrutinatorLog"/> to activate the logging middleware.
     /// It sets up the dashboard UI at the route "/log-scrutinator" and configures Server-Sent Events (SSE) streaming for real-time log updates.
     /// </remarks>
-    public static IApplicationBuilder UseLogScrutinator(this IApplicationBuilder app, Action<LogScrutinatorOptions>? configure = null)
+    public static IApplicationBuilder UseScrutinatorLog(this IApplicationBuilder app, Action<LogScrutinatorOptions>? configure = null)
     {
         var hub = app.ApplicationServices.GetService<LogHub>();
-        if (hub == null) throw new InvalidOperationException($"You must call services.{nameof(AddLogScrutinator)}() first.");
+        if (hub == null) throw new InvalidOperationException($"You must call services.{nameof(AddScrutinatorLog)}() first.");
         
         var options = new LogScrutinatorOptions();
         configure?.Invoke(options);
@@ -173,7 +173,7 @@ public static class LogScrutinatorExtensions
         return app;
     }
 
-    public static IServiceCollection ScrutinateCustomLogger<TInterface>(
+    public static IServiceCollection AddScrutinatorCustomLogger<TInterface>(
         this IServiceCollection services,
         string categoryName = "CustomLogger",
         CustomLogMapper? customMapper = null) where TInterface : class

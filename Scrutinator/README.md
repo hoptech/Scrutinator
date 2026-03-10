@@ -27,16 +27,16 @@ using Scrutinator.Middleware;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
-    .AddDIScrutinator()
-    .AddLogScrutinator();
-
+    .AddScrutinatorDI()
+    .AddScrutinatorLog();
+    // Or, if you have a custom log, like a ILog
+    .AddScrutinatorCustomLogger<ILog>();
+    
 var app = builder.Build();
 
 app
-    .UseDIScrutinator()
-    .UseLogScrutinator();
-    // Or, if you have a custom log, like a ILog
-    .ScrutinateCustomLogger<ILog>();
+    .UseScrutinatorDI()
+    .UseScrutinatorLog();    
 
 app.Run();
 ```
@@ -52,19 +52,19 @@ Open the dashboard at `http(s)://<host>/log-scrutinator`.
 Configure options when adding the middleware:
 
 ```csharp
-app.UseDIScrutinator(options =>
+app.UseScrutinatorDI(options =>
 {
     options.IncludeSystemServices = false;
     options.ScanForCaptiveDependencies = true;
     options.OpenDashboardAutomatically = true;
 });
 
-app.UseLogScrutinator(options =>
+app.UseScrutinatorLog(options =>
 {
     options.OpenDashboardAutomatically = true;
 });
 
-app.UsePackageScrutinator(opts =>
+app.UseScrutinatorPackage(opts =>
 {
     opts.OpenDashboardAutomatically = true;
 });

@@ -14,8 +14,8 @@ builder.Services.AddSingleton<ISingletonDependency, SingletonDependency>();
 builder.Services.AddScoped<IScopedDependency, ScopedDependency>();
 builder.Services.AddTransient<ITransientDependency, TransientDependency>();
 
-builder.Services.AddDIScrutinator();
-builder.Services.AddLogScrutinator();
+builder.Services.AddScrutinatorDI();
+builder.Services.AddScrutinatorLog();
 
 builder.Services.AddHostedService<TestHostedService>();
 
@@ -30,17 +30,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseDIScrutinator(opts => {
+app.UseScrutinatorDI(opts => {
     opts.OpenDashboardAutomatically = true;
     opts.IncludeSystemServices = false;
 });
 
-app.UseLogScrutinator(opts =>
+app.UseScrutinatorLog(opts =>
 {
     opts.OpenDashboardAutomatically = true;
 });
 
-app.UsePackageScrutinator(opts =>
+app.UseScrutinatorPackage(opts =>
 {
     opts.OpenDashboardAutomatically = true;
 });

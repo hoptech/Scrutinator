@@ -11,11 +11,11 @@ using Microsoft.Extensions.Hosting;
 using Scrutinator.Core.Package;
 using Scrutinator.Util;
 
-public static class PackageScrutinatorExtensions
+public static class ScrutinatorPackageExtensions
 {
     private const string RoutePrefix = "/package-scrutinator";
 
-    public static IApplicationBuilder UsePackageScrutinator(this IApplicationBuilder app, Action<PackageScrutinatorOptions>? configure = null)
+    public static IApplicationBuilder UseScrutinatorPackage(this IApplicationBuilder app, Action<PackageScrutinatorOptions>? configure = null)
     {
         var options = new PackageScrutinatorOptions();
         configure?.Invoke(options);

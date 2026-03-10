@@ -11,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Scrutinator.Core.DI;
 using Scrutinator.Util;
 
-public static class DIScrutinatorExtensions
+public static class ScrutinatorDIExtensions
 {
     private static IServiceCollection? _capturedServices;
     private const string RoutePrefix = "/di-scrutinator";
@@ -19,7 +19,7 @@ public static class DIScrutinatorExtensions
     /// <summary>
     /// Step 1: Capture the Service Collection
     /// </summary>
-    public static IServiceCollection AddDIScrutinator(this IServiceCollection services)
+    public static IServiceCollection AddScrutinatorDI(this IServiceCollection services)
     {
         _capturedServices = services;
         return services;
@@ -29,11 +29,11 @@ public static class DIScrutinatorExtensions
     /// Step 2: Map the UI and Analysis Logic
     /// </summary>
     // [Conditional("DEBUG")]
-    public static IApplicationBuilder UseDIScrutinator(this IApplicationBuilder app, Action<DIScrutinatorOptions>? configure = null)
+    public static IApplicationBuilder UseScrutinatorDI(this IApplicationBuilder app, Action<DIScrutinatorOptions>? configure = null)
     {
         if (_capturedServices == null)
         {
-            throw new InvalidOperationException($"Scrutinator Error: You must call 'services.{nameof(AddDIScrutinator)}()' in ConfigureServices before calling 'app.{nameof(UseDIScrutinator)}()'.");
+            throw new InvalidOperationException($"Scrutinator Error: You must call 'services.{nameof(AddScrutinatorDI)}()' in ConfigureServices before calling 'app.{nameof(UseScrutinatorDI)}()'.");
         }
 
         var options = new DIScrutinatorOptions();
