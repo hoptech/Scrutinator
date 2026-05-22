@@ -1,7 +1,8 @@
 # Scrutinator
 
-Scrutinator is a lightweight diagnostic tool for inspecting ASP.NET Core dependency injection containers. It captures your `IServiceCollection`, analyzes registrations, and serves a small dashboard that lists services, lifetimes, and potential captive dependency issues.
-And now with a fancy Log Scrutinating Dashboard.
+Scrutinator is a lightweight diagnostic tool for inspecting ASP.NET Core dependency injection containers. It captures your `IServiceCollection`, analyzes registrations, and serves a small dashboard that lists services, lifetimes, and potential captive dependency issues.  
+And with a fancy Log Scrutinating Dashboard.  
+And now with a fancy Package Scrutinating Dashboard.
 
 ## Features
 
@@ -36,7 +37,7 @@ app
     .UseDIScrutinator()
     .UseLogScrutinator();
     // Or, if you have a custom log, like a ILog
-    .ScrutinateCustomLogger<ILog>();
+    .AddScrutinatorCustomLogger<ILog>();
 
 app.Run();
 ```
