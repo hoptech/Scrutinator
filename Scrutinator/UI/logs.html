@@ -8,6 +8,7 @@
 
         /* Toolbar */
         .toolbar { padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center; }
+        .connection-status { color: #cca700; font-size: 0.85em; }
 
         button, select, input {
             background: #333;
@@ -41,6 +42,7 @@
 <body>
 <div class="toolbar">
     <div class="title"><span class="live-indicator"></span>🔴 Live Logs</div>
+    <div id="connection-status" class="connection-status" role="status" aria-live="polite"></div>
 
     <select id="level-selector" onchange="applyFilter()" title="Minimum Log Level">
         <option value="Trace">ALL (Trace)</option>
@@ -62,8 +64,11 @@
 
 <script>
     const consoleDiv = document.getElementById('console');
+    const connectionStatus = document.getElementById('connection-status');
+    const maxRenderedLogs = 500;
     let isPaused = false;
     let eventSource = null;
+    let renderedLogCount = 0;
 
     const levelRank = {
         "Trace": 0,
@@ -79,7 +84,12 @@
         const streamUrl = window.location.origin + currentPath + '/stream';
 
         console.log("Connecting to:", streamUrl);
+        connectionStatus.textContent = "Connecting...";
         eventSource = new EventSource(streamUrl);
+
+        eventSource.onopen = () => {
+            connectionStatus.textContent = "Connected";
+        };
 
         eventSource.onmessage = (event) => {
             if (isPaused) return;
@@ -88,30 +98,46 @@
         };
 
         eventSource.onerror = () => {
-            const div = document.createElement('div');
-            div.style.color = "#f48771";
-            div.style.padding = "10px";
-            div.innerText = "--- Connection Lost. Reconnecting... ---";
-            consoleDiv.appendChild(div);
+            connectionStatus.textContent = "Connection lost. Reconnecting...";
         };
     }
 
     function appendLog(log) {
         const row = document.createElement('div');
-        row.className = `log-entry lvl-${log.Level}`;
+        row.classList.add('log-entry');
+        if (Object.prototype.hasOwnProperty.call(levelRank, log.Level)) {
+            row.classList.add(`lvl-${log.Level}`);
+        }
         row.dataset.level = log.Level;
 
-        row.innerHTML = `
-            <span class="timestamp">${log.Timestamp}</span>
-            <span class="category">[${log.Category}]</span>
-            <span class="message">${log.Message}</span>
-        `;
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = log.Timestamp;
+
+        const category = document.createElement('span');
+        category.className = 'category';
+        category.textContent = `[${log.Category}]`;
+
+        const message = document.createElement('span');
+        message.className = 'message';
+        message.textContent = log.Message;
+
+        row.append(timestamp, category, message);
 
         if (!isRowVisible(row)) {
             row.style.display = 'none';
         }
 
+        if (renderedLogCount >= maxRenderedLogs) {
+            const oldestLog = consoleDiv.querySelector('.log-entry');
+            if (oldestLog) {
+                oldestLog.remove();
+                renderedLogCount--;
+            }
+        }
+
         consoleDiv.appendChild(row);
+        renderedLogCount++;
         consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }
 
@@ -123,7 +149,8 @@
     }
 
     function clearLogs() {
-        consoleDiv.innerHTML = '';
+        consoleDiv.replaceChildren();
+        renderedLogCount = 0;
     }
 
     function applyFilter() {
