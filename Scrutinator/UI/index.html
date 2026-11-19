@@ -18,6 +18,8 @@
         /* Stats & Warnings */
         .alert-box { background: #3a1d1d; border-left: 5px solid var(--red); padding: 15px; display: none; }
         .alert-box.visible { display: block; }
+        .info-box { background: var(--panel); border-left: 5px solid var(--blue); padding: 15px; display: none; }
+        .info-box.visible { display: block; }
         .stat-card { background: var(--panel); padding: 10px; border-radius: 4px; display: inline-block; margin-right: 10px; }
 
         /* Controls */
@@ -52,8 +54,13 @@
 
 <div class="dashboard">
     <div id="warning-container" class="alert-box">
-        <h3>⚠️ Captive Dependency Warnings</h3>
+        <h3>⚠️ Potential Captive Dependency Warnings</h3>
         <ul id="warning-list"></ul>
+    </div>
+
+    <div id="limitation-container" class="info-box">
+        <h3>Analysis Limitations</h3>
+        <ul id="limitation-list"></ul>
     </div>
 
     <div>
@@ -98,41 +105,64 @@
         const warnList = document.getElementById('warning-list');
         rawData.Warnings.forEach(w => {
             const li = document.createElement('li');
-            li.innerHTML = `<span class="warn-text">${w.ServiceName}</span>: ${w.Message}`;
+            const serviceName = document.createElement('span');
+            serviceName.className = 'warn-text';
+            serviceName.textContent = w.ServiceName;
+            li.append(serviceName, document.createTextNode(`: ${w.Message}`));
             warnList.appendChild(li);
+        });
+    }
+
+    if (rawData.AnalysisLimitations && rawData.AnalysisLimitations.length > 0) {
+        document.getElementById('limitation-container').classList.add('visible');
+        const limitationList = document.getElementById('limitation-list');
+        rawData.AnalysisLimitations.forEach(limitation => {
+            const li = document.createElement('li');
+            li.textContent = limitation;
+            limitationList.appendChild(li);
         });
     }
 
     const tbody = document.getElementById('service-body');
 
     function renderTable(services) {
-        // Performance optimization: Build one big string instead of updating DOM every iteration
-        let tableRows = '';
+        const rows = document.createDocumentFragment();
 
         services.forEach(s => {
-            // Logic: Check if it is a Hosted Service
-            // This checks both the "Tags" property (if you added it to C#) 
-            // OR falls back to checking the name string directly.
             const isHosted = (s.Tags && s.Tags.includes('Background')) || s.ServiceType.includes('IHostedService');
+            const row = document.createElement('tr');
+            const serviceCell = document.createElement('td');
+            serviceCell.className = 'code';
+            serviceCell.appendChild(document.createTextNode(s.ServiceType));
 
-            // Create the badge HTML
-            const hostedBadge = isHosted
-                ? '<span style="background-color:#6b46c1; color:white; padding:2px 6px; border-radius:4px; font-size:0.75em; margin-left:8px; vertical-align: middle;">Running 🔄</span>'
-                : '';
+            if (isHosted) {
+                const badge = document.createElement('span');
+                badge.className = 'tag-background';
+                badge.textContent = 'Running 🔄';
+                serviceCell.appendChild(badge);
+            }
 
-            tableRows += `<tr>
-                <td class="code">
-                    ${s.ServiceType}
-                    ${hostedBadge}
-                </td>
-                <td class="code">${s.ImplementationType}</td>
-                <td><span class="badge ${s.Lifetime}">${s.Lifetime}</span></td>
-                <td>${s.Namespace}</td>
-            </tr>`;
+            const implementationCell = document.createElement('td');
+            implementationCell.className = 'code';
+            implementationCell.textContent = s.ImplementationType;
+
+            const lifetimeCell = document.createElement('td');
+            const lifetimeBadge = document.createElement('span');
+            lifetimeBadge.classList.add('badge');
+            if (['Singleton', 'Scoped', 'Transient'].includes(s.Lifetime)) {
+                lifetimeBadge.classList.add(s.Lifetime);
+            }
+            lifetimeBadge.textContent = s.Lifetime;
+            lifetimeCell.appendChild(lifetimeBadge);
+
+            const namespaceCell = document.createElement('td');
+            namespaceCell.textContent = s.Namespace;
+
+            row.append(serviceCell, implementationCell, lifetimeCell, namespaceCell);
+            rows.appendChild(row);
         });
 
-        // Render once at the end
-        tbody.innerHTML = tableRows;
+        tbody.replaceChildren(rows);
     }
 
     function filterList() {

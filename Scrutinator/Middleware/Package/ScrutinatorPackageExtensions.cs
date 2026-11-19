@@ -3,6 +3,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
@@ -17,6 +18,11 @@ public static class ScrutinatorPackageExtensions
 
     public static IApplicationBuilder UseScrutinatorPackage(this IApplicationBuilder app, Action<PackageScrutinatorOptions>? configure = null)
     {
+        if (!app.ApplicationServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+        {
+            return app;
+        }
+
         var options = new PackageScrutinatorOptions();
         configure?.Invoke(options);
 

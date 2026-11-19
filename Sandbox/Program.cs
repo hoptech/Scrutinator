@@ -2,13 +2,24 @@ using Sandbox.Services;
 using Scrutinator.Middleware.DI;
 using Scrutinator.Middleware.Log;
 using Scrutinator.Middleware.Package;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+var openDashboardAutomatically = builder.Configuration["Scrutinator:OpenDashboardAutomatically"] is { } autoOpenValue
+    ? bool.Parse(autoOpenValue)
+    : true;
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Scrutinator Sandbox",
+        Version = "v1"
+    });
+});
 
 builder.Services.AddSingleton<ISingletonDependency, SingletonDependency>();
 builder.Services.AddScoped<IScopedDependency, ScopedDependency>();
@@ -31,18 +42,18 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseScrutinatorDI(opts => {
-    opts.OpenDashboardAutomatically = true;
+    opts.OpenDashboardAutomatically = openDashboardAutomatically;
     opts.IncludeSystemServices = false;
 });
 
 app.UseScrutinatorLog(opts =>
 {
-    opts.OpenDashboardAutomatically = true;
+    opts.OpenDashboardAutomatically = openDashboardAutomatically;
 });
 
 app.UseScrutinatorPackage(opts =>
 {
-    opts.OpenDashboardAutomatically = true;
+    opts.OpenDashboardAutomatically = openDashboardAutomatically;
 });
 
 app.MapGet("/sandbox", () => "Hello! Scrutinator is watching.");

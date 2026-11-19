@@ -92,34 +92,52 @@
         document.getElementById('count-display').innerText = filtered.length + " Loaded";
 
         // 3. Render Rows
-        tbody.innerHTML = filtered.map(a => {
-            const rowClass = a.IsEntryProject ? 'entry-project' : '';
+        const rows = document.createDocumentFragment();
+        filtered.forEach(a => {
+            const row = document.createElement('tr');
+            if (a.IsDirect) row.classList.add('entry-project');
 
-            // Logic for usage text
-            let usageHtml = '';
+            const nameCell = document.createElement('td');
+            const name = document.createElement('div');
+            name.className = 'name';
+            name.textContent = a.Name;
+
+            const usageContainer = document.createElement('div');
+            usageContainer.className = 'used-by-container';
+            const usageLabel = document.createElement('div');
+            usageLabel.className = 'used-label';
+
             if (a.UsedBy && a.UsedBy.length > 0) {
-                // Limit to first 10 to avoid wall of text
+                usageLabel.textContent = 'Referenced By:';
+                const usedBy = document.createElement('div');
+                usedBy.className = 'used-list';
                 const displayList = a.UsedBy.slice(0, 15).join(', ');
                 const more = a.UsedBy.length > 15 ? `... (+${a.UsedBy.length - 15} more)` : '';
-
-                usageHtml = `
-                        <div class="used-by-container">
-                            <div class="used-label">Referenced By:</div>
-                            <div class="used-list"><span>${displayList}</span> ${more}</div>
-                        </div>`;
+                const names = document.createElement('span');
+                names.textContent = displayList;
+                usedBy.append(names, document.createTextNode(` ${more}`));
+                usageContainer.append(usageLabel, usedBy);
             } else {
-                usageHtml = `<div class="used-by-container"><div class="used-label">No loaded assemblies reference this directly.</div></div>`;
+                usageLabel.textContent = 'No loaded assemblies reference this directly.';
+                usageContainer.appendChild(usageLabel);
             }
 
-            return `<tr class="${rowClass}">
-                    <td>
-                        <div class="name">${a.Name}</div>
-                        ${usageHtml}
-                    </td>
-                    <td class="version">${a.Version}</td>
-                    <td class="path" title="${a.Location}">${a.Location || 'In Memory'}</td>
-                </tr>`;
-        }).join('');
+            nameCell.append(name, usageContainer);
+
+            const versionCell = document.createElement('td');
+            versionCell.className = 'version';
+            versionCell.textContent = a.Version;
+
+            const locationCell = document.createElement('td');
+            locationCell.className = 'path';
+            locationCell.title = a.Location || '';
+            locationCell.textContent = a.Location || 'In Memory';
+
+            row.append(nameCell, versionCell, locationCell);
+            rows.appendChild(row);
+        });
+
+        tbody.replaceChildren(rows);
     }
 </script>
 </body>

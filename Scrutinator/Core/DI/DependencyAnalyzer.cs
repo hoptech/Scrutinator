@@ -1,6 +1,9 @@
 ﻿namespace Scrutinator.Core.DI;
 
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+
+internal sealed record DIScrutinatorServiceCollection(IServiceCollection Services);
 
 public static class DependencyAnalyzer
 {
@@ -9,24 +12,17 @@ public static class DependencyAnalyzer
     public static ScrutinatorReport Analyze(IServiceCollection services, DIScrutinatorOptions options)
     {
         var report = new ScrutinatorReport();
+        var descriptors = services
+            .Where(descriptor => descriptor.ServiceType != typeof(DIScrutinatorServiceCollection))
+            .ToArray();
 
-        // 1. Indexing Pass: Map every Service Type to its Lifetime(s)
-        // We use a Dictionary because a Type might be registered multiple times, 
-        // though usually we care if *any* registration is Scoped.
-        var lifetimeMap = new Dictionary<Type, ServiceLifetime>();
-        
-        foreach (var descriptor in services)
+        if (options.ScanForCaptiveDependencies)
         {
-            // If multiple registrations exist, we generally track the 'most restrictive' or just the fact it exists.
-            // For captive dependency checks, if a type is registered as Scoped anywhere, it's risky.
-            if (!lifetimeMap.ContainsKey(descriptor.ServiceType))
-            {
-                lifetimeMap[descriptor.ServiceType] = descriptor.Lifetime;
-            }
+            report.AnalysisLimitations.Add(
+                "Only direct constructor dependencies are checked. Transitive dependencies and services resolved later through IServiceProvider or IKeyedServiceProvider are not analyzed.");
         }
 
-        // 2. Scanning Pass
-        foreach (var descriptor in services)
+        foreach (var descriptor in descriptors)
         {
             var isSystem = IsSystemService(descriptor);
             
@@ -48,55 +44,140 @@ public static class DependencyAnalyzer
             {
                 node.Tags.Add(BackgroundServiceTag);
             }
-
             report.Services.Add(node);
 
-            // 3. Captive Dependency Check
             if (options.ScanForCaptiveDependencies && descriptor.Lifetime == ServiceLifetime.Singleton)
             {
-                CheckForCaptiveDependency(descriptor, lifetimeMap, report);
+                CheckForCaptiveDependency(descriptor, descriptors, report);
             }
         }
 
-        report.TotalServices = services.Count;
+        report.TotalServices = descriptors.Length;
         return report;
     }
-    
+
     private static void CheckForCaptiveDependency(
-        ServiceDescriptor singletonDescriptor, 
-        Dictionary<Type, ServiceLifetime> lifetimeMap, 
+        ServiceDescriptor singletonDescriptor,
+        ServiceDescriptor[] descriptors,
         ScrutinatorReport report)
     {
-        // We can only statically analyze if ImplementationType is known.
-        // If it uses a Factory (implFactory), we cannot see inside the delegate easily.
-        if (singletonDescriptor.ImplementationType == null) return;
-
-        // Get the constructor (assuming the first public one for simplicity, 
-        // effectively DI uses the one with most resolvable parameters)
-        var ctor = singletonDescriptor.ImplementationType
-            .GetConstructors()
-            .OrderByDescending(c => c.GetParameters().Length)
-            .FirstOrDefault();
-
-        if (ctor == null) return;
-
-        foreach (var param in ctor.GetParameters())
+        var implementationType = GetImplementationType(singletonDescriptor);
+        if (implementationType == null)
         {
-            var paramType = param.ParameterType;
+            var limitation = GetImplementationInstance(singletonDescriptor) != null
+                ? $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' is registered as an instance; its construction dependencies cannot be inspected."
+                : $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' is registered with a factory; the factory dependency graph cannot be inspected.";
+            AddAnalysisLimitation(report, limitation);
+            return;
+        }
 
-            // Check if this parameter type is registered as Scoped
-            if (lifetimeMap.TryGetValue(paramType, out var dependencyLifetime))
+        if (implementationType.ContainsGenericParameters)
+        {
+            AddAnalysisLimitation(
+                report,
+                $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' is an open-generic registration; its closed implementation and constructor dependencies cannot be determined.");
+            return;
+        }
+
+        var constructors = implementationType
+            .GetConstructors()
+            .Where(constructor => constructor.GetParameters().All(parameter => CanResolve(parameter, descriptors)))
+            .ToArray();
+
+        if (constructors.Length == 0)
+        {
+            AddAnalysisLimitation(
+                report,
+                $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' has no public constructor whose parameters can be resolved from the registered services; its dependencies were not analyzed.");
+            return;
+        }
+
+        var greatestParameterCount = constructors.Max(constructor => constructor.GetParameters().Length);
+        var selectedConstructors = constructors
+            .Where(constructor => constructor.GetParameters().Length == greatestParameterCount)
+            .ToArray();
+
+        if (selectedConstructors.Length != 1)
+        {
+            AddAnalysisLimitation(
+                report,
+                $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' has multiple equally greedy resolvable constructors; its dependencies were not analyzed.");
+            return;
+        }
+
+        foreach (var parameter in selectedConstructors[0].GetParameters())
+        {
+            if (parameter.GetCustomAttribute<FromKeyedServicesAttribute>() != null)
             {
-                if (dependencyLifetime == ServiceLifetime.Scoped)
-                {
-                    report.Warnings.Add(new DependencyWarning
-                    {
-                        ServiceName = FormatName(singletonDescriptor.ServiceType),
-                        WarningType = "Captive Dependency",
-                        Message = $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' depends on Scoped service '{FormatName(paramType)}'. This will cause the Scoped service to stay alive forever."
-                    });
-                }
+                AddAnalysisLimitation(
+                    report,
+                    $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' has a keyed constructor dependency; keyed service lifetimes are not analyzed.");
+                continue;
             }
+
+            var isEnumerable = TryGetEnumerableElementType(parameter.ParameterType, out var dependencyType);
+            var matchingRegistrations = GetMatchingRegistrations(dependencyType, descriptors);
+
+            var hasScopedDependency = isEnumerable
+                ? matchingRegistrations.Any(registration => registration.Lifetime == ServiceLifetime.Scoped)
+                : matchingRegistrations.LastOrDefault()?.Lifetime == ServiceLifetime.Scoped;
+
+            if (hasScopedDependency)
+            {
+                report.Warnings.Add(new DependencyWarning
+                {
+                    ServiceName = FormatName(singletonDescriptor.ServiceType),
+                    WarningType = "Potential Captive Dependency",
+                    Message = $"Singleton '{FormatName(singletonDescriptor.ServiceType)}' directly depends on Scoped service '{FormatName(dependencyType)}' through its selected constructor."
+                });
+            }
+        }
+    }
+
+    private static bool CanResolve(ParameterInfo parameter, ServiceDescriptor[] descriptors)
+    {
+        if (parameter.HasDefaultValue ||
+            parameter.GetCustomAttribute<FromKeyedServicesAttribute>() != null ||
+            parameter.ParameterType == typeof(IServiceProvider) ||
+            parameter.ParameterType == typeof(IServiceScopeFactory) ||
+            parameter.ParameterType == typeof(IKeyedServiceProvider) ||
+            TryGetEnumerableElementType(parameter.ParameterType, out _))
+        {
+            return true;
+        }
+
+        return GetMatchingRegistrations(parameter.ParameterType, descriptors).Length > 0;
+    }
+
+    private static ServiceDescriptor[] GetMatchingRegistrations(Type serviceType, ServiceDescriptor[] descriptors)
+    {
+        return descriptors
+            .Where(descriptor =>
+                !descriptor.IsKeyedService &&
+                (descriptor.ServiceType == serviceType ||
+                 descriptor.ServiceType.IsGenericTypeDefinition &&
+                 serviceType.IsConstructedGenericType &&
+                 descriptor.ServiceType == serviceType.GetGenericTypeDefinition()))
+            .ToArray();
+    }
+
+    private static bool TryGetEnumerableElementType(Type serviceType, out Type elementType)
+    {
+        if (serviceType.IsGenericType && serviceType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+        {
+            elementType = serviceType.GetGenericArguments()[0];
+            return true;
+        }
+
+        elementType = serviceType;
+        return false;
+    }
+
+    private static void AddAnalysisLimitation(ScrutinatorReport report, string limitation)
+    {
+        if (!report.AnalysisLimitations.Contains(limitation))
+        {
+            report.AnalysisLimitations.Add(limitation);
         }
     }
 
@@ -111,9 +192,10 @@ public static class DependencyAnalyzer
         // Check the Implementation Type (Your Class)
         var implementationIsSystem = true; // Default to true for Factories/Instances we can't read
     
-        if (descriptor.ImplementationType != null)
+        var implementationType = GetImplementationType(descriptor);
+        if (implementationType != null)
         {
-            var implNs = descriptor.ImplementationType.Namespace;
+            var implNs = implementationType.Namespace;
             // If implementation is in user code (does NOT start with System/Microsoft), it's NOT a system service.
             implementationIsSystem = implNs != null && (implNs.StartsWith("System") || implNs.StartsWith("Microsoft"));
         }
@@ -125,24 +207,24 @@ public static class DependencyAnalyzer
 
     private static string GetImplementationName(ServiceDescriptor descriptor)
     {
-        // 1. ImplementationType (Standard Registration)
-        if (descriptor.ImplementationType != null) 
+        var implementationType = GetImplementationType(descriptor);
+        if (implementationType != null)
         {
-            return FormatName(descriptor.ImplementationType);
+            return FormatName(implementationType);
         }
     
-        // 2. ImplementationInstance (e.g. services.AddSingleton(new MyObject()))
-        if (descriptor.ImplementationInstance != null) 
+        var implementationInstance = GetImplementationInstance(descriptor);
+        if (implementationInstance != null)
         {
-            return FormatName(descriptor.ImplementationInstance.GetType()) + " (Instance)";
+            return FormatName(implementationInstance.GetType()) + " (Instance)";
         }
         
-        // 3. ImplementationFactory (The "Black Box")
-        if (descriptor.ImplementationFactory != null)
+        var implementationFactoryMethod = descriptor.IsKeyedService
+            ? descriptor.KeyedImplementationFactory?.Method
+            : descriptor.ImplementationFactory?.Method;
+        if (implementationFactoryMethod != null)
         {
-            // TRY TO PEEK INSIDE
-            var method = descriptor.ImplementationFactory.Method;
-            var declaringType = method.DeclaringType?.Name;
+            var declaringType = implementationFactoryMethod.DeclaringType?.Name;
         
             // If the factory is a simple lambda in Program.cs, DeclaringType is usually the compiler-generated class
             // But for System services, it often reveals the helper class.
@@ -158,6 +240,12 @@ public static class DependencyAnalyzer
 
         return "Unknown";
     }
+
+    private static Type? GetImplementationType(ServiceDescriptor descriptor) =>
+        descriptor.IsKeyedService ? descriptor.KeyedImplementationType : descriptor.ImplementationType;
+
+    private static object? GetImplementationInstance(ServiceDescriptor descriptor) =>
+        descriptor.IsKeyedService ? descriptor.KeyedImplementationInstance : descriptor.ImplementationInstance;
 
     private static string FormatName(Type type)
     {

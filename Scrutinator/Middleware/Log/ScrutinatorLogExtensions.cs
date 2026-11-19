@@ -2,6 +2,7 @@
 
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Scrutinator.Util;
 using System.Reflection;
@@ -9,6 +10,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Scrutinator.Core.Log;
 
@@ -28,17 +30,8 @@ public static class ScrutinatorLogExtensions
     public static IServiceCollection AddScrutinatorLog(this IServiceCollection services)
     {
         services.AddSingleton<LogHub>();
-
-        services.AddSingleton<ILoggerProvider, ScrutinatorLoggerProvider>();
-
-        services.AddLogging(builder =>
-        {
-            services.AddSingleton<ILoggerProvider, ScrutinatorLoggerProvider>(sp =>
-            {
-                var hub = sp.GetRequiredService<LogHub>();
-                return new ScrutinatorLoggerProvider(hub);
-            });
-        });
+        services.AddLogging();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, ScrutinatorLoggerProvider>());
 
         return services;
     }
@@ -55,6 +48,11 @@ public static class ScrutinatorLogExtensions
     /// </remarks>
     public static IApplicationBuilder UseScrutinatorLog(this IApplicationBuilder app, Action<LogScrutinatorOptions>? configure = null)
     {
+        if (!app.ApplicationServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+        {
+            return app;
+        }
+
         var hub = app.ApplicationServices.GetService<LogHub>();
         if (hub == null) throw new InvalidOperationException($"You must call services.{nameof(AddScrutinatorLog)}() first.");
         
@@ -63,85 +61,52 @@ public static class ScrutinatorLogExtensions
 
         app.Map(RoutePrefix, builder =>
         {
-            // 1. The UI Route (GET /logs)
-            builder.Map("", uiApp => 
+            builder.Map("/stream", streamApp => streamApp.Run(HandleStream));
+
+            builder.Run(async context =>
             {
-                uiApp.Run(async context => 
+                var assembly = Assembly.GetExecutingAssembly();
+                using var stream = assembly.GetManifestResourceStream("Scrutinator.UI.logs.html");
+                if (stream == null)
                 {
-                    var assembly = Assembly.GetExecutingAssembly();
+                    context.Response.StatusCode = 404;
+                    await context.Response.WriteAsync("<h1>Error 404</h1><p>UI Resource not found. Check 'Build Action: Embedded Resource'.</p>");
+                    return;
+                }
 
-                    using var stream = assembly.GetManifestResourceStream("Scrutinator.UI.logs.html");
-                    if (stream == null) 
-                    {
-                        context.Response.StatusCode = 404;
-                        await context.Response.WriteAsync("<h1>Error 404</h1><p>UI Resource not found. Check 'Build Action: Embedded Resource'.</p>");
-                        return;
-                    }
-
-                    using var reader = new StreamReader(stream);
-                    var html = await reader.ReadToEndAsync();
-                    context.Response.ContentType = "text/html";
-                    await context.Response.WriteAsync(html);
-                });
-            });
-
-            // 2. The Stream Route (GET /logs/stream)
-            app.Map(RoutePrefix, builder =>
-            {
-                // 1. Map the stream explicitly
-                builder.Map("/stream", streamApp => streamApp.Run(HandleStream));
-
-                // 2. Run the UI for the base route
-                builder.Run(async context =>
-                {
-                    var assembly = Assembly.GetExecutingAssembly();
-                    // Ensure this string matches your Embedded Resource ID exactly!
-                    using var stream = assembly.GetManifestResourceStream("Scrutinator.UI.logs.html");
-            
-                    if (stream == null)
-                    {
-                        context.Response.StatusCode = 404;
-                        await context.Response.WriteAsync("<h1>Error 404</h1><p>UI Resource not found. Check 'Build Action: Embedded Resource'.</p>");
-                        return;
-                    }
-
-                    using var reader = new StreamReader(stream);
-                    var html = await reader.ReadToEndAsync();
-                    context.Response.ContentType = "text/html";
-                    await context.Response.WriteAsync(html);
-                });
+                using var reader = new StreamReader(stream);
+                var html = await reader.ReadToEndAsync();
+                context.Response.ContentType = "text/html";
+                await context.Response.WriteAsync(html);
             });
 
             async Task HandleStream(HttpContext context)
             {
+                using var subscription = hub.Subscribe();
+
                 context.Response.Headers.Append("Content-Type", "text/event-stream");
                 context.Response.Headers.Append("Cache-Control", "no-cache");
                 context.Response.Headers.Append("Connection", "keep-alive");
 
-                // 1. Send History
-                foreach (var log in hub.GetHistory())
-                {
-                    await SendLog(context, log);
-                }
-
-                // 2. Define Live Handler
-                // We use a local function to wrap the async call
-                async void OnLog(LogEntry log) => await SendLog(context, log);
-
-                hub.OnLogCaptured += OnLog;
-
                 try
                 {
-                    // Keep connection open indefinitely
-                    await Task.Delay(Timeout.Infinite, context.RequestAborted);
+                    await context.Response.StartAsync(context.RequestAborted);
+
+                    foreach (var log in subscription.History)
+                    {
+                        await SendLog(context, log);
+                    }
+
+                    await foreach (var log in subscription.Reader.ReadAllAsync(context.RequestAborted))
+                    {
+                        await SendLog(context, log);
+                    }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
                 {
-                    // Expected when client disconnects
                 }
-                finally
+                catch (IOException) when (context.RequestAborted.IsCancellationRequested)
                 {
-                    hub.OnLogCaptured -= OnLog;
                 }
             }
         });
@@ -191,8 +156,6 @@ public static class ScrutinatorLogExtensions
         // Re-register with the Proxy Wrapper
         services.Add(new ServiceDescriptor(typeof(TInterface), sp =>
         {
-            var hub = sp.GetRequiredService<LogHub>();
-
             // Create the original implementation manually
             TInterface realLogger;
             if (descriptor.ImplementationInstance != null)
@@ -208,6 +171,13 @@ public static class ScrutinatorLogExtensions
                 realLogger = (TInterface)ActivatorUtilities.CreateInstance(sp, descriptor.ImplementationType!);
             }
 
+            if (!sp.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+            {
+                return realLogger;
+            }
+
+            var hub = sp.GetRequiredService<LogHub>();
+
             // Wrap it in the dynamic proxy
             return CustomLoggerProxy<TInterface>.Create(realLogger, hub, categoryName, mapperToUse);
 
@@ -218,12 +188,8 @@ public static class ScrutinatorLogExtensions
 
     private static async Task SendLog(HttpContext context, LogEntry log)
     {
-        try 
-        {
-            var json = JsonSerializer.Serialize(log);
-            await context.Response.WriteAsync($"data: {json}\n\n");
-            await context.Response.Body.FlushAsync();
-        }
-        catch { /* Ignore write errors */ }
+        var json = JsonSerializer.Serialize(log);
+        await context.Response.WriteAsync($"data: {json}\n\n", context.RequestAborted);
+        await context.Response.Body.FlushAsync(context.RequestAborted);
     }
 }

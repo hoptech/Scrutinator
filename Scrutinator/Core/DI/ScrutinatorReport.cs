@@ -4,6 +4,7 @@ public sealed class ScrutinatorReport
 {
     public List<ServiceNode> Services { get; set; } = [];
     public List<DependencyWarning> Warnings { get; set; } = [];
+    public List<string> AnalysisLimitations { get; set; } = [];
     public int TotalServices { get; set; }
     public int SystemServicesHidden { get; set; }
 }

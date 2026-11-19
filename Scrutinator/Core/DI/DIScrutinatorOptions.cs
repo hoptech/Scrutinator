@@ -13,7 +13,8 @@ public sealed class DIScrutinatorOptions
     public bool ScanForCaptiveDependencies { get; set; } = true;
 
     /// <summary>
-    /// If true, opens the default browser to the dashboard on app start (Dev only).
+    /// If true (the default), attempts to open the dashboard in the default browser after app start.
+    /// This is effective only in Development; set false for headless or remote hosts.
     /// </summary>
     public bool OpenDashboardAutomatically { get; set; } = true;
 }

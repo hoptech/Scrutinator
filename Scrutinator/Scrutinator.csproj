@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -11,7 +11,7 @@
         <Company>Hoptech</Company>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageIcon>lantern_black.png</PackageIcon>
-        <Description>A diagnostic tool to inspect DI containers in ASP.NET Core.</Description>
+        <Description>A diagnostic tool for .NET 10 ASP.NET Core applications. Requires Microsoft.AspNetCore.App.</Description>
         <PackageProjectUrl>https://github.com/hoptech/Scrutinator</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
@@ -26,7 +26,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.15" />
     </ItemGroup>
 
     <ItemGroup>

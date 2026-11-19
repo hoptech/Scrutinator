@@ -3,6 +3,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
@@ -13,7 +14,6 @@ using Scrutinator.Util;
 
 public static class ScrutinatorDIExtensions
 {
-    private static IServiceCollection? _capturedServices;
     private const string RoutePrefix = "/di-scrutinator";
     
     /// <summary>
@@ -21,7 +21,7 @@ public static class ScrutinatorDIExtensions
     /// </summary>
     public static IServiceCollection AddScrutinatorDI(this IServiceCollection services)
     {
-        _capturedServices = services;
+        services.AddSingleton(new DIScrutinatorServiceCollection(services));
         return services;
     }
 
@@ -31,7 +31,13 @@ public static class ScrutinatorDIExtensions
     // [Conditional("DEBUG")]
     public static IApplicationBuilder UseScrutinatorDI(this IApplicationBuilder app, Action<DIScrutinatorOptions>? configure = null)
     {
-        if (_capturedServices == null)
+        if (!app.ApplicationServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+        {
+            return app;
+        }
+
+        var capturedServices = app.ApplicationServices.GetService<DIScrutinatorServiceCollection>()?.Services;
+        if (capturedServices == null)
         {
             throw new InvalidOperationException($"Scrutinator Error: You must call 'services.{nameof(AddScrutinatorDI)}()' in ConfigureServices before calling 'app.{nameof(UseScrutinatorDI)}()'.");
         }
@@ -46,7 +52,7 @@ public static class ScrutinatorDIExtensions
             builder.Run(async context =>
             {
                 // 1. Analyze
-                var report = DependencyAnalyzer.Analyze(_capturedServices, options);
+                var report = DependencyAnalyzer.Analyze(capturedServices, options);
                 
                 // 2. Serialize
                 var json = JsonSerializer.Serialize(report);
